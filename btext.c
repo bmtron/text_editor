@@ -3,10 +3,6 @@
 #include <curses.h>
 #include <locale.h>
 
-#define BACKSPACE_KEY = 127
-#define ESCAPE_KEY = 27
-#define ENTER_KEY = 10
-
 
 void get_user_input();
 struct CursorPosition {
