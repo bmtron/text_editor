@@ -10,16 +10,9 @@ struct CharNode *get_last_character_in_row(int row,
   struct CharNode *tmp_head_ptr = malloc(sizeof(struct CharNode));
   tmp_head_ptr = char_list_head;
 
-  while (char_list_head->row < row && char_list_head->next != NULL)  {
+  while (char_list_head->row < row && char_list_head->next != NULL) {
     char_list_head = char_list_head->next;
   }
-
-
-  int file =
-      open("/tmp/editor_dump", O_CREAT | O_RDWR, S_IRWXU | S_IRWXO | S_IRWXG);
-  char *buf = malloc(sizeof(char));
-  buf = &char_list_head->val;
-  write(file, buf, sizeof(char));
   struct CharNode *return_ptr = malloc(sizeof(struct CharNode));
   return_ptr = char_list_head;
 
@@ -43,7 +36,6 @@ void remove_node_at_position(struct CharNode *char_list_head, int position) {
 
   struct CharNode *temp_nullable_head = char_list_head;
   prev_node->next = char_list_head->next;
-  free(temp_nullable_head);
 
   char_list_head = temp_list_head;
 }

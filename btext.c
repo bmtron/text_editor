@@ -57,10 +57,6 @@ int main(int argc, char **argv) {
   delwin(mainwin);
   endwin();
 
-  struct CharNode *terminator = malloc(sizeof(struct CharNode));
-  terminator->val = '\0';
-  terminator->next = NULL;
-
   file_output(char_list_head, output_file_buf);
   free(output_file_buf);
   return 0;
@@ -109,15 +105,31 @@ void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
                           struct CharNode *char_list_head) {
   // need to multiply y position by max row length to add to x for accurate
   // position
-  update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
-  remove_node_at_position(char_list_head,
-                          cursor->x - 1 + (cursor->y * MAX_WIN_WIDTH));
+  // update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
+  // remove_node_at_position(char_list_head,
+  //                         cursor->x - 1 + (cursor->y * MAX_WIN_WIDTH));
   total_char_count--;
   if (total_char_count < 0) {
     total_char_count = 0;
   }
-  wmove(mainwin, cursor->y -1, 0);
-  wdelch(mainwin);
+
+  if (cursor->x == 0 && cursor->y > 0) {
+
+    struct CharNode *last_in_row = malloc(sizeof(struct CharNode));
+    last_in_row = get_last_character_in_row(cursor->y, char_list_head);
+
+    cursor->y--;
+    cursor->x = last_in_row->prev_char_col + 1;
+    remove_node_at_position(char_list_head,
+                            cursor->x - 1 + (cursor->y + 1 * MAX_WIN_WIDTH));
+    wmove(mainwin, cursor->y, cursor->x);
+  } else {
+    update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
+    remove_node_at_position(char_list_head,
+                            cursor->x - 1 + (cursor->y * MAX_WIN_WIDTH));
+    wmove(mainwin, cursor->y, cursor->x);
+    wdelch(mainwin);
+  }
   //  if (total_char_count == 0) {
   //    wmove(mainwin, cursor->y - 1, cursor->x - 1);
   //    wdelch(mainwin);
@@ -182,14 +194,13 @@ void file_output(struct CharNode *char_list_head, char *output_file_buf) {
   char *temp_output_file_buf = malloc(total_char_count);
   int buf_counter = 0;
   while (char_list_head->next != NULL) {
-    if (buf_counter > 0) {
-      temp_output_file_buf[buf_counter - 1] = char_list_head->val;
-    }
+    printf("%c\n", char_list_head->val);
+    temp_output_file_buf[buf_counter] = char_list_head->val;
     buf_counter++;
     char_list_head = char_list_head->next;
   }
   // write last character to buffer manually
-  temp_output_file_buf[buf_counter - 1] = char_list_head->val;
+  temp_output_file_buf[buf_counter] = char_list_head->val;
   ssize_t write_result = write(file, temp_output_file_buf, total_char_count);
 
   printf("real_data: %d\n", total_char_count);
