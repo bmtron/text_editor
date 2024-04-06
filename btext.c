@@ -34,11 +34,15 @@ int main(int argc, char **argv) {
 
   setlocale(LC_ALL, "");
   run_screen_init();
+  if (argc > 1) {
+      printf("%s\n", argv[1]);
+  }
 
-  WINDOW *mainwin = newwin(MAX_WIN_HEIGHT, MAX_WIN_WIDTH, 0, 0);
+  WINDOW *mainwin = newwin(0,0,0,0);//newwin(MAX_WIN_HEIGHT, MAX_WIN_WIDTH, 0, 0);
   wrefresh(mainwin);
+  
 
-  struct Cursor cursor = {.x = mainwin->_curx, .y = mainwin->_cury};
+  struct Cursor cursor = {.x = 0, .y = 0};
   struct CharNode *char_list_head =
       malloc(sizeof(struct CharNode)); //{ .val = '\0', .pos = 0, .row = 0, .col
                                        //= 0, .next = NULL };

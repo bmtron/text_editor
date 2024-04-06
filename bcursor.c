@@ -1,4 +1,3 @@
-
 #include "bcursor.h"
 #include "charlist.h"
 #include <curses.h>
