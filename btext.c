@@ -1,6 +1,7 @@
-#include "struct_defs.h"
 #include "bcursor.h"
+#include "charlist.h"
 #include "stringmap.h"
+#include "struct_defs.h"
 
 #include <curses.h>
 #include <fcntl.h>
@@ -19,15 +20,16 @@
 
 void run_screen_init();
 void init_input_loop(WINDOW *mainwin, struct Cursor *cursor,
-                     struct StringMap *file_data);
+                     struct CharNode *char_list_head);
 void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
-                          struct StringMap *file_data);
+                          struct CharNode *char_list_head);
 void handle_enter_key(WINDOW *mainwin, struct Cursor *cursor,
-                      struct StringMap *file_data);
+                      struct CharNode *char_list_head);
 void handle_character_key(WINDOW *mainwin, struct Cursor *cursor, int curr_char,
-                          struct StringMap *file_data);
-void file_output(struct StringMap *file_data, char *output_file_buf);
+                          struct CharNode *char_list_head);
+void file_output(struct CharNode *char_list_head, char *output_file_buf);
 
+int total_char_count = 0;
 int main(int argc, char **argv) {
 
   setlocale(LC_ALL, "");
@@ -37,19 +39,29 @@ int main(int argc, char **argv) {
   wrefresh(mainwin);
 
   struct Cursor cursor = {.x = mainwin->_curx, .y = mainwin->_cury};
-  struct StringMap *file_data =
-      calloc(sizeof(struct StringMap), STRMAP_BUF_SIZE);
+  struct CharNode *char_list_head =
+      malloc(sizeof(struct CharNode)); //{ .val = '\0', .pos = 0, .row = 0, .col
+                                       //= 0, .next = NULL };
+  char_list_head->val = '\0';
+  char_list_head->next = NULL;
+  char_list_head->pos = 0;
+  char_list_head->row = 0;
+  char_list_head->col = 0;
   char *output_file_buf = malloc(OUTPUT_BUF_SIZE);
 
   memset(output_file_buf, '\0', OUTPUT_BUF_SIZE);
 
-  init_input_loop(mainwin, &cursor, file_data);
+  init_input_loop(mainwin, &cursor, char_list_head);
+
   refresh();
   delwin(mainwin);
   endwin();
 
-  file_output(file_data, output_file_buf);
-  free(file_data);
+  struct CharNode *terminator = malloc(sizeof(struct CharNode));
+  terminator->val = '\0';
+  terminator->next = NULL;
+
+  file_output(char_list_head, output_file_buf);
   free(output_file_buf);
   return 0;
 }
@@ -63,7 +75,7 @@ void run_screen_init() {
 }
 
 void init_input_loop(WINDOW *mainwin, struct Cursor *cursor,
-                     struct StringMap *file_data) {
+                     struct CharNode *char_list_head) {
   int curr_char;
 
   while ((curr_char = wgetch(mainwin))) {
@@ -75,13 +87,13 @@ void init_input_loop(WINDOW *mainwin, struct Cursor *cursor,
       exit_flag = true;
       break;
     case 127: // BACKSPACE
-      handle_backspace_key(mainwin, cursor, file_data);
+      handle_backspace_key(mainwin, cursor, char_list_head);
       continue;
     case 10: // ENTER
-      handle_enter_key(mainwin, cursor, file_data);
+      handle_enter_key(mainwin, cursor, char_list_head);
       continue;
     default:
-      handle_character_key(mainwin, cursor, curr_char, file_data);
+      handle_character_key(mainwin, cursor, curr_char, char_list_head);
       break;
     }
 
@@ -94,77 +106,91 @@ void init_input_loop(WINDOW *mainwin, struct Cursor *cursor,
 }
 
 void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
-                          struct StringMap *file_data) {
-  printf("TESTBACKSPACE");
-  waddch(mainwin, ' ');
-  struct StringMap *strmap = get_character_at_cursor(cursor, file_data);
-  strmap = NULL;
-  update_cursor_position(cursor, file_data, cursor->x - 1, cursor->y);
-  wmove(mainwin, cursor->y, cursor->x);
+                          struct CharNode *char_list_head) {
+  // need to multiply y position by max row length to add to x for accurate
+  // position
+  update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
+  remove_node_at_position(char_list_head,
+                          cursor->x - 1 + (cursor->y * MAX_WIN_WIDTH));
+  total_char_count--;
+  if (total_char_count < 0) {
+    total_char_count = 0;
+  }
+  wmove(mainwin, cursor->y -1, 0);
+  wdelch(mainwin);
+  //  if (total_char_count == 0) {
+  //    wmove(mainwin, cursor->y - 1, cursor->x - 1);
+  //    wdelch(mainwin);
+  //    wmove(mainwin, cursor->y, cursor->x);
+  //  }
 }
+
 void handle_enter_key(WINDOW *mainwin, struct Cursor *cursor,
-                      struct StringMap *file_data) {
+                      struct CharNode *char_list_head) {
   waddch(mainwin, '\n');
-  struct StringMap new_line = {
-      .col = cursor->x + 1, .row = cursor->y, .data = '\n'};
-  file_data[cursor->x + 1 + (cursor->y * MAX_WIN_WIDTH)] = new_line;
-  printf("cursor x: %d cursor y: %d\n", cursor->x, cursor->y);
-  update_cursor_position(cursor, file_data, 0, cursor->y + 1);
+  if (char_list_head->next == NULL && char_list_head->val == '\0') {
+    char_list_head->val = '\n';
+  } else {
+    struct CharNode *new_line = malloc(sizeof(struct CharNode));
+    new_line->pos = cursor->x + 1 + (cursor->y * MAX_WIN_WIDTH);
+    new_line->row = cursor->y;
+    new_line->prev_char_col = cursor->x - 1;
+    new_line->col = cursor->x;
+    new_line->val = '\n';
+    new_line->next = NULL;
+    struct CharNode *temp_head = char_list_head;
+    while (char_list_head->next != NULL) {
+      char_list_head = char_list_head->next;
+    }
+
+    char_list_head->next = new_line;
+    char_list_head = temp_head;
+  }
+  update_cursor_position(cursor, char_list_head, 0, cursor->y + 1);
+  total_char_count++;
   wmove(mainwin, cursor->y, cursor->x);
 }
 void handle_character_key(WINDOW *mainwin, struct Cursor *cursor, int curr_char,
-                          struct StringMap *file_data) {
+                          struct CharNode *char_list_head) {
   waddch(mainwin, curr_char);
-  struct StringMap new_char = {
-      .col = cursor->x, .row = cursor->y, .data = curr_char};
-  file_data[cursor->x + (cursor->y * MAX_WIN_WIDTH)] = new_char;
+  if (char_list_head->next == NULL && char_list_head->val == '\0') {
+    char_list_head->val = curr_char;
+  } else {
+    struct CharNode *temp_head = char_list_head;
+    struct CharNode *new_char = malloc(sizeof(struct CharNode));
+    new_char->val = curr_char;
+    new_char->pos = cursor->x + (cursor->y * MAX_WIN_WIDTH);
+    new_char->row = cursor->y;
+    new_char->col = cursor->x;
+    new_char->next = NULL;
+    while (char_list_head->next != NULL) {
+      char_list_head = char_list_head->next;
+    }
+    char_list_head->next = new_char;
+    char_list_head = temp_head;
+  }
   cursor->x++;
+  total_char_count++;
   wmove(mainwin, cursor->y, cursor->x);
 }
-void file_output(struct StringMap *file_data, char *output_file_buf) {
-
-  size_t stringmapsize = sizeof(struct StringMap);
-  printf("%lu\n", stringmapsize);
-
+void file_output(struct CharNode *char_list_head, char *output_file_buf) {
   int real_data_count = 0;
-  struct LList *original_head = malloc(sizeof(struct LList));
-  original_head->val = '\0';
-  original_head->next = NULL;
 
-  for (int i = 0; i < OUTPUT_BUF_SIZE; i++) {
-    if (file_data[i].data) {
-      struct LList *head = original_head;
-
-      real_data_count++;
-      while (head->next != NULL) {
-        head = head->next;
-      }
-      struct LList *next = malloc(sizeof(struct LList));
-      next->val = '\0';
-      next->next = NULL;
-      head->val = file_data[i].data;
-      head->next = next;
-      output_file_buf[i] = file_data[i].data;
-      if (file_data[i].data == '\n') {
-        printf("NEW LINE ENCOUNTERED\n");
-      } else {
-        printf("%c\n", file_data[i].data);
-        printf("new buffer data: %c\n", output_file_buf[i]);
-      }
-    }
-  }
   int file =
       open("/tmp/test_editor", O_CREAT | O_RDWR, S_IRWXU | S_IRWXO | S_IRWXG);
 
-  char *temp_output_file_buf = malloc(real_data_count);
+  char *temp_output_file_buf = malloc(total_char_count);
   int buf_counter = 0;
-  while (original_head->next != NULL) {
-      temp_output_file_buf[buf_counter] = original_head->val;
-      buf_counter++;
-      original_head = original_head->next;
+  while (char_list_head->next != NULL) {
+    if (buf_counter > 0) {
+      temp_output_file_buf[buf_counter - 1] = char_list_head->val;
+    }
+    buf_counter++;
+    char_list_head = char_list_head->next;
   }
-  
-  ssize_t write_result = write(file, temp_output_file_buf, real_data_count);
+  // write last character to buffer manually
+  temp_output_file_buf[buf_counter - 1] = char_list_head->val;
+  ssize_t write_result = write(file, temp_output_file_buf, total_char_count);
 
-  printf("real_data: %d\n", real_data_count);
+  printf("real_data: %d\n", total_char_count);
 }

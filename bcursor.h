@@ -5,5 +5,5 @@
 
 
 void update_cursor_position(struct Cursor *cursor,
-                            struct StringMap *str_map_buf, int x, int y);
+                            struct CharNode *char_list_head, int x, int y);
 #endif
