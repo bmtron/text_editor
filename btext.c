@@ -105,14 +105,22 @@ void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
                           struct CharNode *char_list_head) {
   // need to multiply y position by max row length to add to x for accurate
   // position
-  // update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
-  // remove_node_at_position(char_list_head,
-  //                         cursor->x - 1 + (cursor->y * MAX_WIN_WIDTH));
   total_char_count--;
   if (total_char_count < 0) {
     total_char_count = 0;
   }
 
+  // so if x is 0, and y is greater than 0,
+  // we're at a new line. we must wrap the cursor.
+  // we get the last character in the row we're traveling to,
+  // which has the column position of the last 'real'
+  // character in the row (the actual last character in any row
+  // of a wrapped line is the newline character '\n').
+  // once we have that, we move the cursor back vertically one row,
+  // and move it to the column position that is 1 further than the character
+  // we need to go to (so we don't sit on the cursor).
+  // Then, remove the character that is causing the line wrap
+  // then move the display cursor.
   if (cursor->x == 0 && cursor->y > 0) {
 
     struct CharNode *last_in_row = malloc(sizeof(struct CharNode));
@@ -121,7 +129,7 @@ void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
     cursor->y--;
     cursor->x = last_in_row->prev_char_col + 1;
     remove_node_at_position(char_list_head,
-                            cursor->x - 1 + (cursor->y + 1 * MAX_WIN_WIDTH));
+                            cursor->x + (cursor->y * MAX_WIN_WIDTH));
     wmove(mainwin, cursor->y, cursor->x);
   } else {
     update_cursor_position(cursor, char_list_head, cursor->x - 1, cursor->y);
@@ -130,11 +138,6 @@ void handle_backspace_key(WINDOW *mainwin, struct Cursor *cursor,
     wmove(mainwin, cursor->y, cursor->x);
     wdelch(mainwin);
   }
-  //  if (total_char_count == 0) {
-  //    wmove(mainwin, cursor->y - 1, cursor->x - 1);
-  //    wdelch(mainwin);
-  //    wmove(mainwin, cursor->y, cursor->x);
-  //  }
 }
 
 void handle_enter_key(WINDOW *mainwin, struct Cursor *cursor,
