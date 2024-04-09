@@ -21,9 +21,10 @@ struct CharNode *get_last_character_in_row(int row,
   return return_ptr;
 }
 void remove_node_at_position(struct CharNode *char_list_head, int position) {
-  if (position == 0 && char_list_head->next == NULL) {
+    int allow_free = 1;
+  if (position <= 0 && char_list_head->next == NULL) {
     char_list_head->val = '\0';
-    return;
+    allow_free = 0;
   }
   int node_count = 0;
   struct CharNode *temp_list_head = char_list_head;
@@ -34,8 +35,12 @@ void remove_node_at_position(struct CharNode *char_list_head, int position) {
     node_count++;
   }
 
-  struct CharNode *temp_nullable_head = char_list_head;
+  struct CharNode *temp_nullable_head = malloc(sizeof(struct CharNode));
+  temp_nullable_head = char_list_head;
   prev_node->next = char_list_head->next;
 
   char_list_head = temp_list_head;
+  if (allow_free == 1) {
+      free(temp_nullable_head);
+  }
 }
