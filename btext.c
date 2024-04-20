@@ -32,6 +32,9 @@ void file_output(struct CharNode *char_list_head, char *output_file_buf);
 int total_char_count = 0;
 int main(int argc, char **argv) {
 
+  //implement file argument here
+  //
+  //
   setlocale(LC_ALL, "");
   run_screen_init();
 
